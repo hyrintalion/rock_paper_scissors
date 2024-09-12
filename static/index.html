@@ -1,0 +1,209 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Rock Paper Scissors</title>
+    <style>
+        body {
+            font-family: Arial, sans-serif;
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            height: 100vh;
+            margin: 0;
+        }
+        .container {
+            text-align: center;
+        }
+        button, input {
+            margin: 5px;
+            padding: 10px 20px;
+            font-size: 16px;
+        }
+        #result, #waiting, #scores {
+            margin-top: 20px;
+            font-size: 18px;
+        }
+        .hidden {
+            display: none;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>Rock Paper Scissors</h1>
+        <div id="setup">
+            <p>Player 1 Name</p>
+            <input type="text" id="player1Name" placeholder="Player 1 Name">
+            <button onclick="chooseMode('computer')">Play with Computer</button>
+            <button onclick="chooseMode('player')">Play with Another Player</button>
+        </div>
+        <div id="player2Setup" class="hidden">
+            <p>Player 2 Name</p>
+            <input type="text" id="player2Name" placeholder="Player 2 Name">
+            <button onclick="startGame()">Start Game</button>
+        </div>
+        <div id="scores" class="hidden">
+            <h3>Scores</h3>
+            <p id="player1Score"></p>
+            <p id="player2Score"></p>
+        </div>
+        <div id="game" class="hidden">
+            <div id="player1Game">
+                <h2 id="player1Header"></h2>
+                <button onclick="play('rock', 'player1')">Rock 🪨</button>
+                <button onclick="play('paper', 'player1')">Paper 📄</button>
+                <button onclick="play('scissors', 'player1')">Scissors ✂️</button>
+            </div>
+            <div id="player2Game" class="hidden">
+                <h2 id="player2Header"></h2>
+                <button onclick="play('rock', 'player2')">Rock 🪨</button>
+                <button onclick="play('paper', 'player2')">Paper 📄</button>
+                <button onclick="play('scissors', 'player2')">Scissors ✂️</button>
+            </div>
+        </div>
+        <div id="waiting" class="hidden">Waiting for other player...</div>
+        <div id="result" class="hidden"></div>
+        <button id="playAgain" onclick="playAgain()" class="hidden">Play Again</button>
+        <button id="newGame" onclick="newGame()" class="hidden">New Game</button>
+        <br>
+        <button id="saveGame" onclick="saveGame()" class="hidden">Save Game</button>
+        <button id="showHistory" onclick="showGameHistory()" class="hidden">Show Game History</button>
+        <div id="gameHistory" class="hidden"></div>
+    </div>
+
+    <script>
+        let gameMode = '';
+        let currentPlayer = 'player1';
+        let player1Name = '';
+        let player2Name = '';
+
+        function chooseMode(mode) {
+            gameMode = mode;
+            document.getElementById('setup').classList.add('hidden');
+            if (mode === 'player') {
+                document.getElementById('player2Setup').classList.remove('hidden');
+            } else {
+                startGame();
+            }
+        }
+
+        async function startGame() {
+            player1Name = document.getElementById('player1Name').value;
+            player2Name = gameMode === 'player' ? document.getElementById('player2Name').value : 'Computer';
+            const response = await fetch('/start_game', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({player1: player1Name, player2: player2Name, mode: gameMode})
+            });
+            const data = await response.json();
+            if (data.message == "Please insert names"){
+                alert(data.message);
+                location.reload();
+            }
+            else {
+                document.getElementById('player2Setup').classList.add('hidden');
+                document.getElementById('game').classList.remove('hidden');
+                document.getElementById('scores').classList.remove('hidden');
+                document.getElementById('player1Header').textContent = `${player1Name}'s turn`;
+                if (gameMode === 'player') {
+                    document.getElementById('player2Header').textContent = `${player2Name}'s turn`;
+                }
+                updateScores(data.player1_score, data.player2_score);
+            }
+        }
+
+        async function play(choice, player) {
+            const response = await fetch('/play', {
+                method: 'POST',
+                headers: {'Content-Type': 'application/json'},
+                body: JSON.stringify({player: player, choice: choice})
+            });
+            const data = await response.json();
+            if (data.result) {
+                showResult(data);
+            } else {
+                if (gameMode === 'player') {
+                    switchPlayer();
+                } else {
+                    document.getElementById('waiting').classList.remove('hidden');
+                    document.getElementById('player1Game').classList.add('hidden');
+                }
+            }
+        }
+
+        function switchPlayer() {
+            if (currentPlayer === 'player1') {
+                currentPlayer = 'player2';
+                document.getElementById('player1Game').classList.add('hidden');
+                document.getElementById('player2Game').classList.remove('hidden');
+            } else {
+                currentPlayer = 'player1';
+                document.getElementById('player2Game').classList.add('hidden');
+                document.getElementById('player1Game').classList.remove('hidden');
+            }
+        }
+
+        function showResult(data) {
+            const resultDiv = document.getElementById('result');
+            resultDiv.innerHTML = `
+                ${data.player1} chose: ${data.player1_choice}<br>
+                ${data.player2} chose: ${data.player2_choice}<br>
+                Result: ${data.result}
+            `;
+            resultDiv.classList.remove('hidden');
+            document.getElementById('waiting').classList.add('hidden');
+            document.getElementById('game').classList.add('hidden');
+            document.getElementById('playAgain').classList.remove('hidden');
+            document.getElementById('newGame').classList.remove('hidden');
+            updateScores(data.player1_score, data.player2_score);
+            document.getElementById('saveGame').classList.remove('hidden');
+            document.getElementById('showHistory').classList.remove('hidden');
+
+        }
+
+        function updateScores(player1Score, player2Score) {
+            document.getElementById('player1Score').textContent = `${player1Name}: ${player1Score}`;
+            document.getElementById('player2Score').textContent = `${player2Name}: ${player2Score}`;
+        }
+
+        function playAgain() {
+            document.getElementById('result').classList.add('hidden');
+            document.getElementById('playAgain').classList.add('hidden');
+            document.getElementById('newGame').classList.add('hidden');
+            document.getElementById('game').classList.remove('hidden');
+            if (gameMode === 'player') {
+                document.getElementById('player1Game').classList.remove('hidden');
+                document.getElementById('player2Game').classList.add('hidden');
+                currentPlayer = 'player1';
+            }
+        }
+
+        function newGame() {
+            location.reload();
+        }
+
+        async function saveGame() {
+            const response = await fetch('/save_game', { method: 'POST' });
+            const data = await response.json();
+            alert(data.message);
+        }
+
+        async function showGameHistory() {
+            const response = await fetch('/game_history');
+            const data = await response.json();
+            const historyDiv = document.getElementById('gameHistory');
+            historyDiv.innerHTML = '<h3>Game History</h3>';
+            data.forEach(game => {
+                historyDiv.innerHTML += `
+                    <p>${game.player1} vs ${game.player2}:
+                    ${game.player1_score} - ${game.player2_score}
+                    Played at: ${new Date(game.played_at).toLocaleString()}</p>
+                `;
+            });
+            historyDiv.classList.remove('hidden');
+        }
+    </script>
+</body>
+</html>
